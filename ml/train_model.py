@@ -6,7 +6,8 @@ import joblib
 import numpy as np
 
 # Read in data from csv
-df = pd.read_csv('data/fall_data_example.csv')
+df1 = pd.read_csv('data/Fall Data May 4 2025.csv')
+df = pd.concat([df1], ignore_index=True)
 
 print(df.head())
 print("--------------------------")
@@ -17,8 +18,8 @@ window = 10
 
 # Add a delta features
 df['deltaY'] = df['y'].diff().fillna(0)
-df['delta_posX'] = df['posX'].diff().fillna(0)
-df['delta_posZ'] = df['posZ'].diff().fillna(0)
+df['delta_posX'] = df['x'].diff().fillna(0)
+df['delta_posZ'] = df['z'].diff().fillna(0)
 
 # Sign of movement (positive = right/forward, negative = left/back)
 df['dirX_sign'] = np.sign(df['delta_posX'])
@@ -100,6 +101,6 @@ predictions = model.predict(X_test)
 print(classification_report(y_test, predictions))
 
 # Save the model for later
-joblib.dump(model, 'models/fall_model_2.joblib')
+joblib.dump(model, 'models/fall_model.joblib')
 
 print(pd.Series(predictions).value_counts())
