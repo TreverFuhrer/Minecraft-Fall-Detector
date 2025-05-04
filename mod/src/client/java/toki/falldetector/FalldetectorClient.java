@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -20,6 +22,7 @@ import net.minecraft.util.math.Vec3d;
 public class FalldetectorClient implements ClientModInitializer {
 
     private static KeyBinding keyBinding;
+	private int falls;
     private int tick = 0;
 
     @Override
@@ -33,6 +36,8 @@ public class FalldetectorClient implements ClientModInitializer {
             "category.falldetector.test" // The translation key of the keybinding's category.
         ));
 
+		Path file = newSession();
+
         // Get player position data each in game tick
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
     		if (client.player != null) {
@@ -42,7 +47,8 @@ public class FalldetectorClient implements ClientModInitializer {
                 boolean isFall = false;
                 if (keyBinding.wasPressed()) {
                     isFall = true;
-                    client.player.sendMessage(Text.literal("Fall key was pressed!"), false);
+					++falls;
+                    client.player.sendMessage(Text.literal("---------- Fall: [ " + falls + " ]----------"), false);
                 }
         		
         		double posY = player.getY();
@@ -50,30 +56,52 @@ public class FalldetectorClient implements ClientModInitializer {
         		boolean onGround = player.isOnGround();
 
                 String line = tick + "," + posY + "," + vel.x + "," + vel.y + "," + vel.z + "," + onGround + "," + isFall + "\n";
-                writeDataToFile(line);
+                if (!writeDataToFile(line, file)) {
+					client.player.sendMessage(Text.literal("Error: could not write to file!"), false);
+				}
             }
 		});
 
     }
 
-    // Writes player position data to a csv file
-    private void writeDataToFile(String line) {
-        try {
-            Path dir = FabricLoader.getInstance().getGameDir().resolve("data/");
+	// Create new session csv file
+	private Path newSession() {
+		try {
+			Path dir = FabricLoader.getInstance().getGameDir().resolve("data/");
             Files.createDirectories(dir);  // makes sure the folder exists
 
-            Path file = dir.resolve("fall_data.csv");
+			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
+			String timestamp = LocalDateTime.now().format(formatter);
+            Path file = dir.resolve("fall_data_" + timestamp + ".csv");
 
-            // Write header if file doesn't exist
+			// Write header if file doesn't exist
             if (!Files.exists(file)) {
                 Files.writeString(file, "tick,y,velX,velY,velZ,onGround,isFall\n", StandardOpenOption.CREATE);
             }
 
-            // Append new line
-            Files.writeString(file, line, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+			return file;
+		}
+		catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		// Error
+		return null;
+	}
+
+    // Writes player position data to a csv file
+    private boolean writeDataToFile(String line, Path file) {
+		if (file != null) {
+			try {
+            	// Append new line to csv file
+            	Files.writeString(file, line, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+				return true;
+        	} 
+			catch (IOException e) {
+            	e.printStackTrace();
+        	}
+		}
+		return false;
     }
     
 }
