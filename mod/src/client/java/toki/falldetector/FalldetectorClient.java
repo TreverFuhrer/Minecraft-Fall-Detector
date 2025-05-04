@@ -52,10 +52,12 @@ public class FalldetectorClient implements ClientModInitializer {
                 }
         		
         		double posY = player.getY();
+				double posX = player.getX();
+				double posZ = player.getZ();
         		Vec3d vel = player.getVelocity();
         		boolean onGround = player.isOnGround();
 
-                String line = tick + "," + posY + "," + vel.x + "," + vel.y + "," + vel.z + "," + onGround + "," + isFall + "\n";
+                String line = tick + "," + posX + "," + posY + "," + posZ + "," + vel.x + "," + vel.y + "," + vel.z + "," + onGround + "," + isFall + "\n";
                 if (!writeDataToFile(line, file)) {
 					client.player.sendMessage(Text.literal("Error: could not write to file!"), false);
 				}
@@ -76,7 +78,7 @@ public class FalldetectorClient implements ClientModInitializer {
 
 			// Write header if file doesn't exist
             if (!Files.exists(file)) {
-                Files.writeString(file, "tick,y,velX,velY,velZ,onGround,isFall\n", StandardOpenOption.CREATE);
+                Files.writeString(file, "tick,x,y,z,velX,velY,velZ,onGround,isFall\n", StandardOpenOption.CREATE);
             }
 
 			return file;
