@@ -5,9 +5,9 @@ from sklearn.metrics import classification_report
 import joblib
 import numpy as np
 
-
 # Read in data from csv
 df = pd.read_csv('data/fall_data_example.csv')
+
 print(df.head())
 print("--------------------------")
 
@@ -17,22 +17,22 @@ window = 10
 
 # Add a delta features
 df['deltaY'] = df['y'].diff().fillna(0)
-#df['delta_posX'] = df['posX'].diff().fillna(0)
-#df['delta_posZ'] = df['posZ'].diff().fillna(0)
+df['delta_posX'] = df['posX'].diff().fillna(0)
+df['delta_posZ'] = df['posZ'].diff().fillna(0)
 
 # Sign of movement (positive = right/forward, negative = left/back)
-#df['dirX_sign'] = np.sign(df['delta_posX'])
-#df['dirZ_sign'] = np.sign(df['delta_posZ'])
+df['dirX_sign'] = np.sign(df['delta_posX'])
+df['dirZ_sign'] = np.sign(df['delta_posZ'])
 
 # Direction changed feature
-#df['dirX_change'] = df['dirX_sign'].rolling(window).apply(lambda x: int(np.any(np.diff(x) != 0)), raw=True).fillna(0)
-#df['dirZ_change'] = df['dirZ_sign'].rolling(window).apply(lambda x: int(np.any(np.diff(x) != 0)), raw=True).fillna(0)
-#df['direction_changed'] = ((df['dirX_change'] + df['dirZ_change']) > 0).astype(int)
+df['dirX_change'] = df['dirX_sign'].rolling(window).apply(lambda x: int(np.any(np.diff(x) != 0)), raw=True).fillna(0)
+df['dirZ_change'] = df['dirZ_sign'].rolling(window).apply(lambda x: int(np.any(np.diff(x) != 0)), raw=True).fillna(0)
+df['direction_changed'] = ((df['dirX_change'] + df['dirZ_change']) > 0).astype(int)
 
 # Count how many ticks out of the last 10 had low velocity/ slow (almost stationary)
-#df['speed'] = (df['velX']**2 + df['velY']**2 + df['velZ']**2)**0.5
-#df['low_velocity'] = (df['speed'] < 0.03).astype(int)  # You can tweak the threshold
-#df['low_velocity_duration'] = df['low_velocity'].rolling(window).sum().fillna(0)
+df['speed'] = (df['velX']**2 + df['velY']**2 + df['velZ']**2)**0.5
+df['low_velocity'] = (df['speed'] < 0.03).astype(int)  # You can tweak the threshold
+df['low_velocity_duration'] = df['low_velocity'].rolling(window).sum().fillna(0)
 
 # The lowest Y-value in the last window
 df['recent_y_min'] = df['y'].rolling(window).min().fillna(df['y'])
@@ -45,10 +45,30 @@ df['y_climb_after_drop'] = ((df['y_diff_from_5ago'] > 1.0) & (df['deltaY'] > 0))
 df['onGround'] = df['onGround'].astype(int)
 df['onGround_ratio'] = df['onGround'].rolling(window).mean().fillna(0)
 
-
-
 # Convert to ints
 df['isFall'] = df['isFall'].astype(int)
+
+
+
+# Re Balance Dataframe
+
+ratio = 20
+random_state = 42
+
+falls = df[df['isFall'] == 1]
+non_falls = df[df['isFall'] == 0]
+
+num_to_keep = min(len(non_falls), len(falls) * ratio)
+non_falls_sampled = non_falls.sample(n=num_to_keep, random_state=random_state)
+
+df = pd.concat([falls, non_falls_sampled]).sample(frac=1, random_state=random_state)
+
+
+
+
+
+
+
 
 # Model Inputs
 features = [
@@ -80,6 +100,6 @@ predictions = model.predict(X_test)
 print(classification_report(y_test, predictions))
 
 # Save the model for later
-joblib.dump(model, 'models/fall_model_1.joblib')
+joblib.dump(model, 'models/fall_model_2.joblib')
 
 print(pd.Series(predictions).value_counts())
