@@ -1,3 +1,4 @@
+tick,y,velX,velY,velZ,onGround,isFall
 1091,68.1,0.0,0.0,0.0,false,false
 1092,68.1,0.0,-0.0784000015258789,0.0,false,false
 1093,68.0625,0.0,-0.0784000015258789,0.0,true,false
