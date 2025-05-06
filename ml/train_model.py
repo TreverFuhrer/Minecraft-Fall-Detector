@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from xgboost import XGBClassifier
+from core.features import engineer_features
 import joblib
 import warnings
 
@@ -33,55 +34,6 @@ def load_data(file_paths):
 
     print("\n=== Reassigned Labeled Falls (First Ground Contact After Fall) ===")
     print(df['isFall'].value_counts())
-
-    return df
-
-
-# === FEATURE ENGINEERING ===
-def engineer_features(df, window=10):
-    # Movement deltas
-    df['deltaY'] = df['y'].diff().fillna(0)
-    df['delta_posX'] = df['x'].diff().fillna(0)
-    df['delta_posZ'] = df['z'].diff().fillna(0)
-
-    # Direction change detection
-    df['dirX_sign'] = np.sign(df['delta_posX'])
-    df['dirZ_sign'] = np.sign(df['delta_posZ'])
-    df['dirX_change'] = df['dirX_sign'].rolling(window).apply(lambda x: int(np.any(np.diff(x) != 0)), raw=True).fillna(0)
-    df['dirZ_change'] = df['dirZ_sign'].rolling(window).apply(lambda x: int(np.any(np.diff(x) != 0)), raw=True).fillna(0)
-    df['direction_changed'] = ((df['dirX_change'] + df['dirZ_change']) > 0).astype(int)
-
-    # Speed and low velocity features
-    df['speed'] = np.sqrt(df['velX']**2 + df['velY']**2 + df['velZ']**2)
-    df['low_velocity'] = (df['speed'] < 0.03).astype(int)
-    df['low_velocity_duration'] = df['low_velocity'].rolling(window).sum().fillna(0)
-
-    # Y position history
-    df['recent_y_min'] = df['y'].rolling(window).min().fillna(df['y'])
-    df['y_diff_from_5ago'] = df['y'] - df['y'].shift(5)
-    df['y_climb_after_drop'] = ((df['y_diff_from_5ago'] > 1.0) & (df['deltaY'] > 0)).astype(int)
-
-    # Ground-related features
-    df['onGround'] = df['onGround'].astype(int)
-    df['onGround_ratio'] = df['onGround'].rolling(window).mean().fillna(0)
-
-    # Temporal velocity/Y features
-    df['velY_prev'] = df['velY'].shift(1)
-    df['deltaY_prev'] = df['y'] - df['y'].shift(1)
-
-    df['y_prev_fall'] = np.nan
-    last_y_fall = None
-    for idx in df.index:
-        if df.loc[idx, 'isFall'] == 1:
-            if last_y_fall is not None:
-                df.loc[idx, 'y_prev_fall'] = last_y_fall
-            last_y_fall = df.loc[idx, 'y']
-    df['y_diff_from_prev_fall'] = df['y'] - df['y_prev_fall']
-    df['y_diff_from_prev_fall'] = df['y_diff_from_prev_fall'].fillna(0)
-
-
-
-    df['isFall'] = df['isFall'].astype(int)
 
     return df
 
@@ -136,7 +88,8 @@ if __name__ == "__main__":
         'y_diff_from_5ago',
         'y_climb_after_drop',
         'deltaY_prev',
-        'y_prev_fall' # 1
+        'y_prev_fall',
+        'has_prev_fall'
     ]
 
     X = df[features]
