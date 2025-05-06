@@ -1,119 +1,126 @@
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
-import joblib
-import os
-
 from xgboost import XGBClassifier
+import joblib
+import warnings
 
-# === LOAD DATA ===
+warnings.filterwarnings("ignore", category=UserWarning, message="`use_label_encoder` is deprecated in 1.7.0.")
+
+# === LOAD AND LABEL DATA ===
 def load_data(file_paths):
+    # Load and concatenate all CSV files
     dfs = [pd.read_csv(path) for path in file_paths]
-    combined_df = pd.concat(dfs, ignore_index=True)
-    combined_df.columns = combined_df.columns.str.strip()  # Remove whitespace in column names
+    df = pd.concat(dfs, ignore_index=True)
+    df.columns = df.columns.str.strip()  # Clean column names
 
     print("\n=== Total Labeled Falls ===")
-    print(combined_df['isFall'].value_counts())
+    print(df['isFall'].value_counts())
 
-    # Expand fall labels to surrounding window
-    FALL_WINDOW = 10
-    fall_indices = combined_df.index[combined_df['isFall'] == 1]
+    # Adjust fall labels to mark the first onGround=True tick after a fall label
+    fall_indices = df.index[df['isFall'] == 1]
+    df['isFall'] = 0  # Reset all
     for idx in fall_indices:
-        start = max(0, idx - FALL_WINDOW)
-        end = min(len(combined_df) - 1, idx + FALL_WINDOW)
-        combined_df.loc[start:end, 'isFall'] = 1 
+        for look_ahead in range(1, 20):  # Look ahead up to 20 ticks
+            if idx + look_ahead < len(df) and df.loc[idx + look_ahead, 'onGround']:
+                df.loc[idx + look_ahead, 'isFall'] = 1
+                break
 
-    print("\n=== New Total Labeled Falls ===")
-    print(combined_df['isFall'].value_counts())
+    print("\n=== Reassigned Labeled Falls (First Ground Contact After Fall) ===")
+    print(df['isFall'].value_counts())
 
-    return combined_df
-
+    return df
 
 
 # === FEATURE ENGINEERING ===
 def engineer_features(df, window=10):
-    # Y movement change from previous tick
+    # Movement deltas
     df['deltaY'] = df['y'].diff().fillna(0)
-
-    # Change in X and Z position (horizontal movement)
     df['delta_posX'] = df['x'].diff().fillna(0)
     df['delta_posZ'] = df['z'].diff().fillna(0)
 
-    # Sign of horizontal movement (1 = positive, -1 = negative, 0 = no movement)
+    # Direction change detection
     df['dirX_sign'] = np.sign(df['delta_posX'])
     df['dirZ_sign'] = np.sign(df['delta_posZ'])
-
-    # Whether X or Z direction changed in the last window (indicates turning around or hesitation)
     df['dirX_change'] = df['dirX_sign'].rolling(window).apply(lambda x: int(np.any(np.diff(x) != 0)), raw=True).fillna(0)
     df['dirZ_change'] = df['dirZ_sign'].rolling(window).apply(lambda x: int(np.any(np.diff(x) != 0)), raw=True).fillna(0)
-    
-    # If direction changed in either X or Z
     df['direction_changed'] = ((df['dirX_change'] + df['dirZ_change']) > 0).astype(int)
 
-    # Total movement speed (magnitude of velocity vector)
-    df['speed'] = (df['velX']**2 + df['velY']**2 + df['velZ']**2)**0.5
-
-    # Was the player almost standing still? (<0.03 speed)
+    # Speed and low velocity features
+    df['speed'] = np.sqrt(df['velX']**2 + df['velY']**2 + df['velZ']**2)
     df['low_velocity'] = (df['speed'] < 0.03).astype(int)
-
-    # How many of the last 10 ticks had low velocity (possibly retrying parkour)
     df['low_velocity_duration'] = df['low_velocity'].rolling(window).sum().fillna(0)
 
-    # Lowest Y value in the last window (used to detect drops)
+    # Y position history
     df['recent_y_min'] = df['y'].rolling(window).min().fillna(df['y'])
-
-    # Did Y increase after 5 ticks ago (player climbed back up after falling)?
     df['y_diff_from_5ago'] = df['y'] - df['y'].shift(5)
     df['y_climb_after_drop'] = ((df['y_diff_from_5ago'] > 1.0) & (df['deltaY'] > 0)).astype(int)
 
-    # Percent of last window spent on the ground
+    # Ground-related features
     df['onGround'] = df['onGround'].astype(int)
     df['onGround_ratio'] = df['onGround'].rolling(window).mean().fillna(0)
 
-    # Ensure labels are integer type
+    # Temporal velocity/Y features
+    df['velY_prev'] = df['velY'].shift(1)
+    df['deltaY_prev'] = df['y'] - df['y'].shift(1)
+
+    df['y_prev_fall'] = np.nan
+    last_y_fall = None
+    for idx in df.index:
+        if df.loc[idx, 'isFall'] == 1:
+            if last_y_fall is not None:
+                df.loc[idx, 'y_prev_fall'] = last_y_fall
+            last_y_fall = df.loc[idx, 'y']
+    df['y_diff_from_prev_fall'] = df['y'] - df['y_prev_fall']
+    df['y_diff_from_prev_fall'] = df['y_diff_from_prev_fall'].fillna(0)
+
+
+
     df['isFall'] = df['isFall'].astype(int)
 
     return df
 
 
-# === BALANCE DATA ===
+# === BALANCE FALL/NON-FALL DATA ===
 def balance_data(df, ratio=20, random_state=42):
-    # Sample non-falls to maintain a fall:non-fall ratio
     falls = df[df['isFall'] == 1]
     non_falls = df[df['isFall'] == 0]
-    num_to_keep = min(len(non_falls), len(falls) * ratio)
-    non_falls_sampled = non_falls.sample(n=num_to_keep, random_state=random_state)
+    sample_size = min(len(non_falls), len(falls) * ratio)
+
+    non_falls_sampled = non_falls.sample(n=sample_size, random_state=random_state)
     balanced_df = pd.concat([falls, non_falls_sampled]).sample(frac=1, random_state=random_state)
+
     print("\n=== Total Balanced Labeled Falls ===")
-    print(balanced_df['isFall'].value_counts())
+    print(balanced_df['isFall'].value_counts(), "\n")
+
     return balanced_df
 
 
 # === MAIN TRAINING FLOW ===
 if __name__ == "__main__":
+    # Load data files
     file_paths = [
         'data/fall_data_2025-05-04_17-40-08.csv',
         'data/fall_data_2025-05-04_18-08-17.csv',
         'data/fall_data_2025-05-04_22-25-05.csv'
     ]
-
+    
     df = load_data(file_paths)
     df = engineer_features(df)
     df = balance_data(df, ratio=20)
 
-    # Model inputs (features)
+    # Feature set to train on
     features = [
-        'y',                   # Current Y position
-        'deltaY',              # Vertical movement
-        'velY',                # Vertical velocity
-        'onGround',            # Is the player on the ground
-        # 'direction_changed', # Optional: turning around
-        # 'low_velocity_duration', # Optional: standing still
-        'recent_y_min',        # Lowest Y in last few ticks
-        'y_climb_after_drop',  # Recovered upward movement after drop
-        'onGround_ratio'       # % time spent grounded
+        'onGround',              # 310.1483 – Strongest indicator of landing
+        'onGround_ratio',        # 10.85453 – Time recently spent grounded
+        'y',                     # 5.225263 – Current Y position
+        'recent_y_min',          # 2.887518 – Lowest Y in recent window
+        'deltaY',                # 2.802523 – Current Y change
+        'low_velocity_duration', # 2.039953 – Time spent moving slowly
+        'direction_changed',     # 1.878181 – Sudden direction switch
+        'velY_prev',              # 1.099517 – Previous tick's vertical velocity
+        'y_diff_from_prev_fall'
     ]
 
     X = df[features]
@@ -122,19 +129,28 @@ if __name__ == "__main__":
     # Train-test split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
-    # Create and train model
-    model = XGBClassifier(scale_pos_weight=20, use_label_encoder=False, eval_metric='logloss')
-    #model = RandomForestClassifier(class_weight='balanced')
+    # Train model
+    model = XGBClassifier(scale_pos_weight=5, use_label_encoder=False, eval_metric='logloss')
     model.fit(X_train, y_train)
 
-    # Predict and evaluate
-    predictions = model.predict(X_test)
+    # Predict with confidence threshold
+    threshold = 0.8
+    probs = model.predict_proba(X_test)
+    fall_probs = probs[:, 1]
+    predictions = (fall_probs > threshold).astype(int)
+
+    print(f"\n=== Threshold {threshold} ===")
     print("\n=== Classification Report ===")
     print(classification_report(y_test, predictions))
+
+    print("\n=== Prediction Counts ===")
+    print(pd.Series(predictions).value_counts())
 
     # Save model
     joblib.dump(model, 'models/fall_model.joblib')
 
-    # Print counts of predictions
-    print("\n=== Prediction Counts ===")
-    print(pd.Series(predictions).value_counts())
+    # Feature importance (by gain)
+    importance = model.get_booster().get_score(importance_type='gain')
+    sorted_importance = pd.Series(importance).sort_values(ascending=False)
+    print("\n=== Feature Importances (by Gain) ===")
+    print(sorted_importance)
