@@ -18,14 +18,18 @@ def load_data(file_paths):
     print("\n=== Total Labeled Falls ===")
     print(df['isFall'].value_counts())
 
-    # Adjust fall labels to mark the first onGround=True tick after a fall label
-    fall_indices = df.index[df['isFall'] == 1]
-    df['isFall'] = 0  # Reset all
-    for idx in fall_indices:
-        for look_ahead in range(1, 20):  # Look ahead up to 20 ticks
+    # Find onGround=True after labeled fall, then assign the label to 10 ticks earlier
+    fall_indices = []
+    for idx in df.index[df['isFall'] == 1]:
+        for look_ahead in range(1, 20):
             if idx + look_ahead < len(df) and df.loc[idx + look_ahead, 'onGround']:
-                df.loc[idx + look_ahead, 'isFall'] = 1
+                shifted_idx = idx + look_ahead - 10
+                if shifted_idx >= 0:
+                    fall_indices.append(shifted_idx)
                 break
+
+    df['isFall'] = 0
+    df.loc[fall_indices, 'isFall'] = 1
 
     print("\n=== Reassigned Labeled Falls (First Ground Contact After Fall) ===")
     print(df['isFall'].value_counts())
