@@ -116,15 +116,27 @@ if __name__ == "__main__":
 
     # Feature set to train on
     features = [
-        'onGround',              # 310.1483 – Strongest indicator of landing
-        'onGround_ratio',        # 10.85453 – Time recently spent grounded
-        'y',                     # 5.225263 – Current Y position
-        'recent_y_min',          # 2.887518 – Lowest Y in recent window
-        'deltaY',                # 2.802523 – Current Y change
-        'low_velocity_duration', # 2.039953 – Time spent moving slowly
-        'direction_changed',     # 1.878181 – Sudden direction switch
-        'velY_prev',              # 1.099517 – Previous tick's vertical velocity
-        'y_diff_from_prev_fall'
+        'onGround',
+        'onGround_ratio',
+        'y',
+        'recent_y_min',
+        'deltaY',
+        'low_velocity_duration',
+        'direction_changed',
+        'velY_prev',
+        'y_diff_from_prev_fall',
+        'delta_posX',
+        'delta_posZ',
+        'dirX_sign',
+        'dirZ_sign',
+        'dirX_change',
+        'dirZ_change',
+        'speed',
+        'low_velocity',
+        'y_diff_from_5ago',
+        'y_climb_after_drop',
+        'deltaY_prev',
+        'y_prev_fall' # 1
     ]
 
     X = df[features]
@@ -151,7 +163,7 @@ if __name__ == "__main__":
     print(pd.Series(predictions).value_counts())
 
     # Save model
-    joblib.dump(model, 'models/fall_model.joblib')
+    joblib.dump(model, 'models/fall_model444.joblib')
 
     # Feature importance (by gain)
     importance = model.get_booster().get_score(importance_type='gain')
