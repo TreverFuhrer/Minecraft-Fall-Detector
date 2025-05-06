@@ -7,22 +7,15 @@ import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-import org.lwjgl.glfw.GLFW;
-
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.Vec3d;
 
 public class FalldetectorClient implements ClientModInitializer {
 
-    private static KeyBinding keyBinding;
-	private int falls;
     private int tick = 0;
 
     @Override
@@ -35,7 +28,8 @@ public class FalldetectorClient implements ClientModInitializer {
     		if (client.player != null) {
                 ++tick;
                 ClientPlayerEntity player = client.player;
-        		
+
+                boolean isFall = false;
         		double posY = player.getY();
 				double posX = player.getX();
 				double posZ = player.getZ();
