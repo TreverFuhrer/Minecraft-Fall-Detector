@@ -39,7 +39,7 @@ def load_data(file_paths):
 
 
 # === BALANCE FALL/NON-FALL DATA ===
-def balance_data(df, ratio=20, random_state=42):
+def balance_data(df, ratio, random_state=42):
     falls = df[df['isFall'] == 1]
     non_falls = df[df['isFall'] == 0]
     sample_size = min(len(non_falls), len(falls) * ratio)
@@ -64,7 +64,7 @@ if __name__ == "__main__":
     
     df = load_data(file_paths)
     df = engineer_features(df)
-    df = balance_data(df, ratio=20)
+    df = balance_data(df, ratio=60)
 
     # Feature set to train on
     features = [
@@ -76,7 +76,7 @@ if __name__ == "__main__":
         'low_velocity_duration',
         'direction_changed',
         'velY_prev',
-        'y_diff_from_prev_fall',
+        #'y_diff_from_prev_fall',
         'delta_posX',
         'delta_posZ',
         'dirX_sign',
@@ -88,8 +88,9 @@ if __name__ == "__main__":
         'y_diff_from_5ago',
         'y_climb_after_drop',
         'deltaY_prev',
-        'y_prev_fall',
-        'has_prev_fall'
+        #'y_prev_fall',
+        'has_prev_fall',
+        'ticks_since_prev_fall'
     ]
 
     X = df[features]
@@ -116,7 +117,7 @@ if __name__ == "__main__":
     print(pd.Series(predictions).value_counts())
 
     # Save model
-    joblib.dump(model, 'models/fall_model444.joblib')
+    joblib.dump(model, 'models/fall_model.joblib')
 
     # Feature importance (by gain)
     importance = model.get_booster().get_score(importance_type='gain')

@@ -1,7 +1,4 @@
-import pandas as pd
-import numpy as np
 import joblib
-from core.features import engineer_features
 from core.buffer import SlidingBuffer
 import time
 
@@ -39,15 +36,17 @@ def tail_csv(file_path, callback, sleep_interval=0.01):
                 continue
 
             tick_data = parse_tick_line(line)
+            print("new line: " + str(tick_data))
             if tick_data:
                 callback(tick_data)
 
 
 # === Main Inference Runner ===
 def main():
+    
     # Load trained fall detection model
-    model = joblib.load('fall_model444.joblib')
-
+    model = joblib.load('models/fall_model5.joblib')
+    
     # Features used by model
     features = [
         'onGround',
@@ -58,7 +57,7 @@ def main():
         'low_velocity_duration',
         'direction_changed',
         'velY_prev',
-        'y_diff_from_prev_fall',
+        #'y_diff_from_prev_fall',
         'delta_posX',
         'delta_posZ',
         'dirX_sign',
@@ -70,20 +69,24 @@ def main():
         'y_diff_from_5ago',
         'y_climb_after_drop',
         'deltaY_prev',
-        'y_prev_fall',
-        'has_prev_fall'
+        #'y_prev_fall',
+        'has_prev_fall',
+        'ticks_since_prev_fall'
     ]
-
+    
     # Initialize sliding buffer for real-time inference
-    buffer = SlidingBuffer(window_size=10, model=model, features=features)
-
+    buffer = SlidingBuffer(window_size=60, model=model, features=features)
+    
     def handle_tick(tick_data):
         result = buffer.add_tick(tick_data)
         if result and result['fall']:
+            print("==========\n")
             print(f"[FALL] tick={result['tick_id']} | prob={result['prob']:.3f}")
+            print("==========\n")
 
     # Start monitoring tick stream
-    tick_file = 'live_ticks.csv'  # path to your live tick file
+    tick_file = 'data/test.csv'  # path to your live tick file
+    print("-- loaded test.csv --")
     tail_csv(tick_file, handle_tick)
 
 

@@ -1,6 +1,6 @@
 import numpy as np
 
-def engineer_features(df, window=10, last_fall_y=None):
+def engineer_features(df, window=60, last_fall_y=None, last_fall_tick=None, current_tick=0):
     # Movement deltas
     df['deltaY'] = df['y'].diff().fillna(0)
     df['delta_posX'] = df['x'].diff().fillna(0)
@@ -31,9 +31,8 @@ def engineer_features(df, window=10, last_fall_y=None):
     df['velY_prev'] = df['velY'].shift(1)
     df['deltaY_prev'] = df['y'] - df['y'].shift(1)
 
-    # y_diff_from_prev_fall setup
+    # Previous fall tracking (has_prev_fall)
     if 'isFall' in df.columns:
-        # TRAINING mode — simulate fall history
         df['y_prev_fall'] = np.nan
         last_y = None
         for idx in df.index:
@@ -41,17 +40,34 @@ def engineer_features(df, window=10, last_fall_y=None):
                 if last_y is not None:
                     df.loc[idx, 'y_prev_fall'] = last_y
                 last_y = df.loc[idx, 'y']
+                
         df['y_diff_from_prev_fall'] = df['y'] - df['y_prev_fall']
         df['y_diff_from_prev_fall'] = df['y_diff_from_prev_fall'].fillna(999)
         df['has_prev_fall'] = df['y_prev_fall'].notna().astype(int)
 
+        # Ticks since previous fall (training mode)
+        df['ticks_since_prev_fall'] = 999
+        last_tick = None
+        for idx in df.index:
+            if df.loc[idx, 'isFall'] == 1:
+                last_tick = idx
+            if last_tick is not None:
+                df.loc[idx, 'ticks_since_prev_fall'] = idx - last_tick
+
+        df['ticks_since_prev_fall'] = df['ticks_since_prev_fall'].fillna(999)
+
     else:
-        # LIVE mode — use externally tracked last_fall_y
+        # LIVE mode — use externally tracked last_fall_y and last_fall_tick
         if last_fall_y is not None:
             df['y_diff_from_prev_fall'] = df['y'] - last_fall_y
             df['has_prev_fall'] = 1
         else:
             df['y_diff_from_prev_fall'] = 999
             df['has_prev_fall'] = 0
+
+        if last_fall_tick is not None:
+            df['ticks_since_prev_fall'] = current_tick - last_fall_tick
+        else:
+            df['ticks_since_prev_fall'] = 999
 
     return df

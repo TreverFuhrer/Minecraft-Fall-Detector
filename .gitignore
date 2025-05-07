@@ -1,3 +1,7 @@
 .venv/
+.myenv/
 mc mod live data/build
 mc mod training data/build
+__pycache__/
+core/__pycache__/
+ml/__pycache__/
