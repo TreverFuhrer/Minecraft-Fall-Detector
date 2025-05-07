@@ -4,6 +4,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from xgboost import XGBClassifier
 from core.features import engineer_features
+from .feature_list import features
 import joblib
 import warnings
 
@@ -65,33 +66,6 @@ if __name__ == "__main__":
     df = load_data(file_paths)
     df = engineer_features(df)
     df = balance_data(df, ratio=60)
-
-    # Feature set to train on
-    features = [
-        'onGround',
-        'onGround_ratio',
-        'y',
-        'recent_y_min',
-        'deltaY',
-        'low_velocity_duration',
-        'direction_changed',
-        'velY_prev',
-        #'y_diff_from_prev_fall',
-        'delta_posX',
-        'delta_posZ',
-        'dirX_sign',
-        'dirZ_sign',
-        'dirX_change',
-        'dirZ_change',
-        'speed',
-        'low_velocity',
-        'y_diff_from_5ago',
-        'y_climb_after_drop',
-        'deltaY_prev',
-        #'y_prev_fall',
-        'has_prev_fall',
-        #'ticks_since_prev_fall'
-    ]
 
     X = df[features]
     y = df['isFall']
