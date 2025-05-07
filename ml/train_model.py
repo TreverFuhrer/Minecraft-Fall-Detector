@@ -90,7 +90,7 @@ if __name__ == "__main__":
         'deltaY_prev',
         #'y_prev_fall',
         'has_prev_fall',
-        'ticks_since_prev_fall'
+        #'ticks_since_prev_fall'
     ]
 
     X = df[features]
