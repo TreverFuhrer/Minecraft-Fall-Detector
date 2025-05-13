@@ -1,7 +1,6 @@
-# ─── Python virtual envs & caches ───────────────────────────────────
+# ─── Python virtual envs & bytecode ───────────────────────────────
 .venv/
 .myenv/
-# if you ever name it "venv" too:
 venv/
 
 __pycache__/
@@ -9,26 +8,28 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# ─── Gradle & Fabric build outputs ─────────────────────────────────
-.gradle/             # local Gradle cache
-build/               # all build/ folders (including your mod’s)
-out/                 # IntelliJ build dir, if used
-run/                 # Fabric’s run/ folder
+# ─── Fabric/Gradle caches & build outputs ─────────────────────────
+**/.gradle/             # all .gradle dirs (including loom-cache)
+**/build/               # all build/ dirs in any subfolder
+**/out/                 # IntelliJ out/
+**/run/                 # Fabric run configs
+**/bin/                 # Gradle “bin” scripts or build bins
 
-# keep the Gradle wrapper scripts & JARs!
+# keep the wrapper scripts & JARs so the project is buildable
 !gradlew
 !gradlew.bat
 !/gradle/wrapper/gradle-wrapper.properties
 !/gradle/wrapper/gradle-wrapper.jar
 
-# ─── IDE / editor files ─────────────────────────────────────────────
+# ─── IDE / editor files ───────────────────────────────────────────
 .idea/
 *.iml
 .vscode/
 
-# ─── OS artifacts & logs ───────────────────────────────────────────
+# ─── OS artifacts & logs ─────────────────────────────────────────
 .DS_Store
 Thumbs.db
+
 logs/
 *.log
 *.tmp
