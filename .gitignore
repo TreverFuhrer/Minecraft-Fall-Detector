@@ -14,6 +14,7 @@ __pycache__/
 **/out/                 # IntelliJ out/
 **/run/                 # Fabric run configs
 **/bin/                 # Gradle “bin” scripts or build bins
+mc mod live data/.gradle
 
 # keep the wrapper scripts & JARs so the project is buildable
 !gradlew
